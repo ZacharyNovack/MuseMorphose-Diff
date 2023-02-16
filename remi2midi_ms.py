@@ -17,10 +17,12 @@ DEFAULT_FRACTION = 24
 class ConversionEvent(object):
   def __init__(self, event, is_full_event=False):
     if not is_full_event:
-      if 'Note' in event:
+      if 'note' in event:
         self.name, self.value = '_'.join(event.split('_')[:-1]), event.split('_')[-1]
       elif 'Chord' in event:
         self.name, self.value = event.split('_')[0], '_'.join(event.split('_')[1:])
+      elif event in ['bar', 'eos']:
+        self.name = self.value = event
       else:
         self.name, self.value = event.split('_')
     else:
@@ -56,7 +58,7 @@ def remi2midi(events, output_midi_path=None, is_full_event=False, return_first_t
   events = [ConversionEvent(ev, is_full_event=is_full_event) for ev in events]
   # print (events[:20])
 
-  assert events[0].name == 'Bar'
+  assert events[0].name == 'bar'
   temp_notes = []
   temp_tempos = []
   temp_chords = []
@@ -65,19 +67,19 @@ def remi2midi(events, output_midi_path=None, is_full_event=False, return_first_t
   cur_position = 0
 
   for i in range(len(events)):
-    if events[i].name == 'Bar':
+    if events[i].name == 'bar':
       if i > 0:
         cur_bar += 1
-    elif events[i].name == 'Beat':
+    elif events[i].name == 'position':
       cur_position = int(events[i].value)
       assert cur_position >= 0 and cur_position < DEFAULT_FRACTION
-    elif events[i].name == 'Tempo':
+    elif events[i].name == 'tempo':
       temp_tempos.append(TempoEvent(
         int(events[i].value), cur_bar, cur_position
       ))
-    elif 'Note_Pitch' in events[i].name and \
-         (i+1) < len(events) and 'Note_Velocity' in events[i+1].name and \
-         (i+2) < len(events) and 'Note_Duration' in events[i+2].name:
+    elif 'note_on' in events[i].name and \
+         (i+1) < len(events) and 'note_velocity' in events[i+1].name and \
+         (i+2) < len(events) and 'note_duration' in events[i+2].name:
       # check if the 3 events are of the same instrument
       temp_notes.append(
         NoteEvent(
@@ -90,7 +92,7 @@ def remi2midi(events, output_midi_path=None, is_full_event=False, return_first_t
       temp_chords.append(
         ChordEvent(events[i].value, cur_bar, cur_position)
       )
-    elif events[i].name in ['EOS', 'PAD']:
+    elif events[i].name in ['eos', 'PAD']:
       continue
 
   # print (len(temp_tempos), len(temp_notes))
